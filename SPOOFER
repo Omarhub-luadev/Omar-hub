@@ -1,0 +1,66 @@
+-- [[ OMAR HUB ANTICHEAT SPOOFER ]]
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local lp = Players.LocalPlayer
+
+-- Настройки
+local MAX_SPEED = 35 -- Максимальная скорость, которую видит сервер (стандарт 16-20)
+local lastPos = nil
+local lastTime = os.clock()
+
+print("========================================")
+print("👻 OMAR HUB ANTICHEAT SPOOFER")
+print("🚀 Максимальная скорость для сервера: " .. MAX_SPEED)
+print("========================================")
+
+-- Хукаем метаметод __namecall, чтобы перехватывать все вызовы RemoteEvent:FireServer()
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    
+    -- Если это отправка на сервер
+    if method == "FireServer" then
+        local args = {...}
+        
+        -- Проверяем аргументы на наличие векторов (позиции) или чисел (скорость)
+        for i, arg in pairs(args) do
+            -- Если аргумент - это Vector3 (позиция)
+            if typeof(arg) == "Vector3" then
+                if lastPos then
+                    local dist = (arg - lastPos).Magnitude
+                    local timePassed = os.clock() - lastTime
+                    
+                    if timePassed > 0 then
+                        local currentSpeed = dist / timePassed
+                        
+                        -- Если скорость превышает лимит, подменяем позицию
+                        if currentSpeed > MAX_SPEED then
+                            local direction = (arg - lastPos).Unit
+                            local fakePos = lastPos + (direction * (MAX_SPEED * timePassed))
+                            
+                            -- Подменяем аргумент
+                            args[i] = fakePos
+                            print(string.format("🕵️ Подмена позиции! Было: %.1f, Стало: %.1f", currentSpeed, MAX_SPEED))
+                        end
+                    end
+                end
+                
+                lastPos = arg
+                lastTime = os.clock()
+            end
+            
+            -- Если аргумент - это число (например, скорость в studs/s)
+            if typeof(arg) == "number" and arg > MAX_SPEED and arg < 1000 then
+                args[i] = MAX_SPEED
+                print("🕵️ Подмена числа скорости! Было: " .. arg .. ", Стало: " .. MAX_SPEED)
+            end
+        end
+        
+        -- Вызываем оригинальный FireServer с измененными аргументами
+        return oldNamecall(self, table.unpack(args))
+    end
+    
+    return oldNamecall(self, ...)
+end)
+
+print("✅ Перехват FireServer установлен. Античит видит только нормальную скорость.")
